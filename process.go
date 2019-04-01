@@ -9,12 +9,35 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
-	"syscall"
-	"time"
 )
 
 var BarVar = getEnv("HOME", "/tmp")
 var childPid int
+
+func main() {
+
+	// playWithEnvs()
+
+	// passSomeArguments("ping", "-c", "1", "localhost")
+
+	// go run process.go -cmd=ls -args="-la /tmp"
+	// go run process.go -cmd="./run.sh" -args="true"
+	cmdPtr := flag.String("cmd", "echo", "a string")
+	argsPtr := flag.String("args", "hello world", "many strings")
+	flag.Parse()
+	// getStatus := passArguments(cmdPtr, argsPtr)
+	// fmt.Println(getStatus)
+
+	go func() {
+		for {
+			getStatus := passArguments(cmdPtr, argsPtr)
+			if getStatus {
+				os.Exit(0)
+			}
+		}
+	}()
+	select {}
+}
 
 // get 'key' environment variable if exist on HOST machine otherwise return defalutValue
 func getEnv(key, defaultValue string) string {
@@ -67,7 +90,7 @@ func passSomeArguments(cmdName string, cmdArgs ...string) {
 }
 
 // func passArguments(wg *sync.WaitGroup, cmdName *string, cmdArgs *string) {
-func passArguments(cmdName *string, cmdArgs *string) {
+func passArguments(cmdName *string, cmdArgs *string) bool {
 
 	// Start a process
 	args := strings.Split(*cmdArgs, " ")
@@ -96,7 +119,7 @@ func passArguments(cmdName *string, cmdArgs *string) {
 		log.Fatal(err)
 	}
 
-	// get PID
+	// get and set PID
 	childPid = cmd.Process.Pid
 	log.Printf("Job PID=%d \n", childPid)
 
@@ -134,49 +157,9 @@ func passArguments(cmdName *string, cmdArgs *string) {
 	err = cmd.Wait()
 	if err != nil {
 		log.Printf("Job finished with: %v", err)
+		return false
 	}
 
-	// defer wg.Done()
 	log.Printf("Job completed.")
-
-}
-
-// TODO, check if Pid is running, if not rerun
-// os.FindProcess
-// this has no effect on process wich has became zombie and not harvested by parent
-
-func pidIsRunning(wg *sync.WaitGroup) {
-	go func() {
-		for {
-			procPid, err := os.FindProcess(childPid)
-			if err != nil {
-				log.Printf("Failed to find process: %s\n", err)
-			} else {
-				err := procPid.Signal(syscall.Signal(0))
-				log.Printf("Signal on pid %d returned: %v\n", childPid, err)
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}()
-	select {}
-}
-
-func main() {
-
-	playWithEnvs()
-
-	// passSomeArguments("ping", "-c", "1", "localhost")
-
-	// go run process.go -cmd=ls -args="-la /tmp"
-	// go run process.go -cmd="./run.sh" -args="true"
-	cmdPtr := flag.String("cmd", "echo", "a string")
-	argsPtr := flag.String("args", "hello world", "many strings")
-	flag.Parse()
-	passArguments(cmdPtr, argsPtr)
-	// var wg sync.WaitGroup
-	// wg.Add(1)
-	// go passArguments(&wg, cmdPtr, argsPtr)
-	// // go pidIsRunning(&wg)
-	// wg.Wait()
-
+	return true
 }
